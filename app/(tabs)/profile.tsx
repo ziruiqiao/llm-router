@@ -5,13 +5,16 @@ import tw from 'twrnc';
 import { TextInput, TouchableWithoutFeedback } from "react-native-gesture-handler";
 import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { lightTheme, darkTheme } from '@/constants/theme';
 
 export default function Profile() {
     const [usedCredit, setUsedCredit] = useState(0.0);
     const [totalCredit, setTotalCredit] = useState(0.0);
     const [chatHistory, setChatHistory] = useState(0);
     const [apiKey, setApiKey] = useState("");
-
+    const colorScheme = useColorScheme();
+    const [dark, setDark] = useState(colorScheme === 'dark');
     
     const getCredit = async () => {
         try {
@@ -68,11 +71,11 @@ export default function Profile() {
       }, [apiKey]);
 
     return (
-        <SafeAreaProvider style={tw`bg-white`}>
+        <SafeAreaProvider>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
                 <SafeAreaView>
                     <View style={tw`flex flex-col p-10`}>
-                        <Text style={tw`text-3xl pt-10 pb-5 font-medium`}>
+                        <Text style={tw`text-3xl pt-10 pb-5 font-medium ${dark?darkTheme.text : lightTheme.text} `}>
                             User Profile
                         </Text>
                         <View style={tw`flex flex-row justify-between`}>
@@ -81,9 +84,9 @@ export default function Profile() {
                             <TableElem name="Chat History" value={chatHistory}/>
                         </View>
                         <View style={tw`flex flex-col pt-12`}>
-                            <Text>Input your OpenRouter API Key: </Text>
+                            <Text style={tw`${dark?darkTheme.text : lightTheme.text} `}>Input your OpenRouter API Key: </Text>
                             <TextInput
-                                style={tw`border mt-2 h-7 rounded-md`}
+                                style={tw`border border-gray-700 mt-2 h-7 rounded-md ${dark?darkTheme.text : lightTheme.text}`}
                                 placeholder="Input API Key here..."
                                 onChangeText={setApiKey}
                                 value={apiKey}
