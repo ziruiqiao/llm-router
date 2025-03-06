@@ -524,7 +524,7 @@ export default function ChatRoom() {
                 onPress={sendMsg} 
                 disabled={!inputText}
               >
-                <AntDesign name="arrowright" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
+                <AntDesign name="arrowup" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
               </TouchableOpacity>
 
             </View>
