@@ -72,7 +72,7 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                     <View style={tw`
                         ${item.role === 'user' ? 
                             `px-5 py-2 rounded-3xl ${dark ? darkTheme.background : lightTheme.background}`: 
-                            `pt-2 rounded-xl ${dark ? darkTheme.background0 : lightTheme.background0}
+                            `py-2 rounded-xl ${dark ? darkTheme.background0 : lightTheme.background0}
                             ${dark ? '' : 'px-5' }
                             `
                         }
@@ -82,7 +82,7 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                     {/* Show copy icon if role is 'assistant' */}
                     {item.role === 'assistant' && (
                         <View style={tw`flex flex-row justify-between mt-2`}>
-                            <Text style={tw`opacity-50 ${dark ? darkTheme.text2 : lightTheme.text2}`}>{item.modelName}</Text>
+                            <Text style={tw`opacity-75 ${dark ? darkTheme.text2 : lightTheme.text2}`}>{item.modelName}</Text>
                             <TouchableOpacity onPress={copyToClipboard} style={tw`self-end`}>
                                 <Feather name="copy" size={16} color="gray" />
                             </TouchableOpacity>
@@ -98,7 +98,7 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                             >
                                 <FontAwesome6 name="chevron-left" size={18} color="gray" />
                             </TouchableOpacity>
-                            <Text style={tw`opacity-50 text-sm ${dark ? darkTheme.text2 : lightTheme.text2}`}>{item.branchNum}/{peers.length}</Text>
+                            <Text style={tw`opacity-75 text-sm ${dark ? darkTheme.text2 : lightTheme.text2}`}>{item.branchNum}/{peers.length}</Text>
                             <TouchableOpacity 
                                 onPress={() => switchNextBranch(item.branchNum)}
                                 disabled={item.branchNum === peers.length}

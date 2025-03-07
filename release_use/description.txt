@@ -1,0 +1,13 @@
+LLM Router allows chat with over 300 different AI models. Free App!!!
+
+LLM Router is an intelligent mobile assistant that simplifies AI interactions through:
+
+1. Smart Routing System: Automatically directs queries to optimal AI models. Seamlessly switches between chat modes and task execution
+
+2. Personalized Experience: Adaptive dark/light themes matching device settings. Customizable interface with saved preferences
+
+3. Intuitive Interface: Tab-based navigation with tactile feedback. Clean message threads with conversation history. Visual indicators for AI processing status
+
+4. Cross-Platform Consistency: Native-feeling UI across iOS and Android. Instant loading with managed splash screens
+
+5. Efficient Processing: Background task queuing. Smart resource management for complex queries

@@ -412,16 +412,12 @@ export default function ChatRoom() {
         >
             <SafeAreaView style={tw`absolute w-full h-full p-3 z-10`}>
                 <View style={tw`flex flex-row justify-between py-1 px-1.5`}>
-                    <AntDesign 
-                      name="plus" size={28} 
-                      color={dark?darkTheme.icon : lightTheme.icon} 
-                      onPress={() => createNewRoom()}
-                    />
-                    <Feather 
-                      name="arrow-right" size={28} 
-                      color={dark?darkTheme.icon : lightTheme.icon} 
-                      onPress={() => setSidebarExpanded(false)}
-                    />
+                    <TouchableOpacity onPress={() => createNewRoom()} >
+                      <AntDesign name="plus" size={28} color={dark?darkTheme.icon : lightTheme.icon} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSidebarExpanded(false)} >
+                      <Feather name="arrow-right" size={28} color={dark?darkTheme.icon : lightTheme.icon} />
+                    </TouchableOpacity>
                 </View>
                 <FlatList
                     data={chatRooms}
@@ -450,7 +446,7 @@ export default function ChatRoom() {
         </Sidebar>
 
         {/* Chat Window */}
-        <View style={tw`flex-grow`}>
+        <View style={tw`flex-grow ${Platform.OS === 'ios' ? '' : 'mt-5'}`}>
             {/* Button to Open Model Selection Modal */}
             <View style={tw`flex flex-row justify-between`}>
                 <TouchableOpacity 

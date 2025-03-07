@@ -30,7 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarExpanded, closeSidebar, slideF
 
   return (
     <View 
-      style={tw`absolute inset-0 ${sidebarExpanded ? "z-50" : "z-50"} ${Platform.OS === 'ios' ? 'mb-13' : ''}`}
+      style={tw`absolute inset-0 ${sidebarExpanded ? "z-50" : "z-50"} ${Platform.OS === 'ios' ? 'mb-13' : 'mt-5'}`}
       pointerEvents={sidebarExpanded ? "auto" : "none"} // Allow clicks when open, ignore when closed
     >
       {/* Overlay (click outside to close) */}
