@@ -79,9 +79,9 @@ export default function ChatRoom() {
         if (storedChats) setChatRooms(JSON.parse(storedChats));
       };
     const getApiKey = async () => {
-        const key = await AsyncStorage.getItem('API_KEY');
+      const key = await AsyncStorage.getItem('API_KEY');
       if (!key) {
-        Alert.alert('Error', 'API key not found');
+        // Alert.alert('Error', 'API key not found');
         return;
       }
       setApiKey(key);
@@ -256,23 +256,35 @@ export default function ChatRoom() {
     setInputText('');
     const selectedModel: LLMModel | undefined = chatRooms.find(room => room.id == currentChatId)?.model;
     if (!selectedModel) return;
+
+    if (!apiKey) {
+      Alert.alert('Error', 'API key not found');
+      return;
+    }
+
+    console.log("Handling Send API");
+
+    const msgToSend = covertToSendMsg(getAllRelatedMessages(newMessage.id, updatedChats));
+    console.log(`Messages to be Sent: ${JSON.stringify(msgToSend)}`);
     
     try {
       setLoading(true);
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: selectedModel.id,
-          messages: covertToSendMsg(getAllRelatedMessages(newMessage.id, updatedChats)),
+          messages: msgToSend,
           stream: true,
         }),
       });
-      // const data = await response.json();
-      // console.log(data);
+      // const data = await response.text();
+      console.log("Response Headers:", JSON.stringify(response.headers, null, 2));
+      console.log("Response Status:", JSON.stringify(response.status, null, 2));
+      console.log(`response has body: ${!!response.body}`);
 
       if (!response.ok) {
         console.error("Failed to fetch response:", response.status, response.statusText);
@@ -433,12 +445,12 @@ export default function ChatRoom() {
                         }
                     >
                         <Text style={tw`text-center px-10`}>{item.name}</Text>
-                        <Feather 
-                            style={tw`absolute right-5 pt-1 opacity-25`} 
+                        <TouchableOpacity style={tw`absolute right-5 pt-1 opacity-25`} onPress={() => removeChatroom(item.id)} >
+                          <Feather 
                             name="delete" size={24}
                             color={item.id !== currentChatId && dark?darkTheme.icon : lightTheme.icon} 
-                            onPress={() => removeChatroom(item.id)}
-                        />
+                          />
+                        </TouchableOpacity>
                     </TouchableOpacity>
                     )}
                 />
@@ -560,11 +572,12 @@ export default function ChatRoom() {
             // Model List with Info Icon
             <>
             <View style={tw`flex flex-row justify-start pt-10 pb-1 px-1.5`}>
-                <Feather 
-                  name="arrow-left" size={28} 
-                  color={dark?darkTheme.icon : lightTheme.icon} 
-                  onPress={() => setModalVisible(false)}
-                />
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Feather 
+                    name="arrow-left" size={28} 
+                    color={dark?darkTheme.icon : lightTheme.icon} 
+                  />
+                </TouchableOpacity>
             </View>
               <FlatList
                 data={availableModels}

@@ -1,4 +1,4 @@
-LLM Router allows chat with over 300 different AI models. Free App!!!
+Routes your LLM interactions with intuitive controls
 
 LLM Router is an intelligent mobile assistant that simplifies AI interactions through:
 
