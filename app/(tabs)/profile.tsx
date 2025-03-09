@@ -1,6 +1,8 @@
 import React, {useState, useEffect} from "react";
 import * as Clipboard from 'expo-clipboard';
-import { Buffer } from 'buffer';
+import * as AuthSession from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
 import { Text, View, Keyboard, Button, TouchableOpacity } from 'react-native';
 import TableElem from '@/components/TableElem';
 import tw from 'twrnc';
@@ -68,7 +70,7 @@ export default function Profile() {
     }
 
     
-    function generateRandomString(length) {
+    function generateRandomString(length: number) {
         const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
         let randomString = "";
         for (let i = 0; i < length; i++) {
@@ -87,54 +89,60 @@ export default function Profile() {
             .replace(/=+$/, "");
     }
 
-    async function redirectToOpenRouterLogin() {
-        const clientId = "ZH1LlniwNMbOoYAOtr5CuLEgMUuTuLkU"; // From OpenRouter
-        const redirectUri = "myapp://oauth/callback"; // Must match OpenRouter settings
+    const exchangeCodeForApiKey = async (code, codeVerifier, redirectUri) => {
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+        try {
+          const response = await fetch('https://openrouter.ai/api/v1/auth/keys', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              code,
+              code_verifier: codeVerifier,
+              redirect_uri: redirectUri,
+              code_challenge: codeChallenge,
+              code_challenge_method: 'S256',
+            }),
+          });
     
+          const { key } = await response.json();
+          if (key) {
+            setApiKey(key);
+            await SecureStore.setItemAsync('openrouter_api_key', key);
+          } else {
+            console.error('Failed to retrieve API key');
+          }
+        } catch (error) {
+          console.error('Error exchanging code for API key:', error);
+        }
+    };
+
+    async function loginWithOpenRouter() {
+        const redirectUri = AuthSession.makeRedirectUri({ 
+            scheme: "myapp", 
+            path: "oauth/callback" 
+        }); // Must match OpenRouter settings
         const codeVerifier = generateRandomString(128);
-        localStorage.setItem("codeVerifier", codeVerifier); // Store for later use
-    
         const codeChallenge = await generateCodeChallenge(codeVerifier);
     
-        const authUrl = `https://openrouter.ai/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+        await SecureStore.setItemAsync('code_verifier', codeVerifier);
     
-        window.location.href = authUrl; // Redirect to OpenRouter login
-    }
-    
-    function getAuthorizationCodeFromURL() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get("code");
-    }
-    
-    async function exchangeCodeForToken() {
-        const clientId = "YOUR_CLIENT_ID";
-        const redirectUri = "YOUR_REDIRECT_URI";
-        const code = getAuthorizationCodeFromURL();
-        const codeVerifier = localStorage.getItem("codeVerifier"); // Retrieve from Step 3
-    
-        if (!code || !codeVerifier) {
-            console.error("Missing authorization code or code verifier.");
-            return;
-        }
-    
-        const tokenResponse = await fetch("https://openrouter.ai/oauth/token", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-                grant_type: "authorization_code",
-                client_id: clientId,
-                redirect_uri: redirectUri,
-                code: code,
-                code_verifier: codeVerifier
-            })
-        });
-    
-        const tokenData = await tokenResponse.json();
-        console.log("Access Token:", tokenData.access_token);
-    
-        if (tokenData.access_token) {
-            localStorage.setItem("accessToken", tokenData.access_token);
-            window.history.replaceState({}, document.title, "/"); // Clean URL
+        const [request, response, promptAsync] = AuthSession.useAuthRequest(
+            {
+              clientId: 'ZH1LlniwNMbOoYAOtr5CuLEgMUuTuLkU',
+              scopes: ['openid', 'profile'],
+              redirectUri,
+              codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
+            },
+            {
+              authorizationEndpoint: 'https://openrouter.ai/auth',
+              tokenEndpoint: 'https://openrouter.ai/api/v1/auth/keys',
+            }
+        );
+        if (response?.type === 'success' && response.params.code) {
+            const { code } = response.params;
+            exchangeCodeForApiKey(code, codeVerifier, redirectUri);
         }
     }
 
@@ -186,7 +194,7 @@ export default function Profile() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                    <Button title="Get JWT" onPress={() => getJWTToken()}/>
+                    <Button title="Get JWT" onPress={() => loginWithOpenRouter()}/>
                 </SafeAreaView>
             </TouchableWithoutFeedback>
         </SafeAreaProvider>
