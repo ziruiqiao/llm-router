@@ -12,6 +12,8 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import Sidebar from "@/components/SideBarAnim";
 import MessageComponent from "@/components/MessageComponent";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { lightTheme, darkTheme } from '@/constants/theme';
 
 import tw from 'twrnc';
 
@@ -67,6 +69,8 @@ export default function ChatRoom() {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const colorScheme = useColorScheme();
+  const [dark, setDark] = useState(colorScheme === 'dark');
 
 
   useEffect(() => {
@@ -75,9 +79,9 @@ export default function ChatRoom() {
         if (storedChats) setChatRooms(JSON.parse(storedChats));
       };
     const getApiKey = async () => {
-        const key = await AsyncStorage.getItem('API_KEY');
+      const key = await AsyncStorage.getItem('API_KEY');
       if (!key) {
-        Alert.alert('Error', 'API key not found');
+        // Alert.alert('Error', 'API key not found');
         return;
       }
       setApiKey(key);
@@ -252,23 +256,35 @@ export default function ChatRoom() {
     setInputText('');
     const selectedModel: LLMModel | undefined = chatRooms.find(room => room.id == currentChatId)?.model;
     if (!selectedModel) return;
+
+    if (!apiKey) {
+      Alert.alert('Error', 'API key not found');
+      return;
+    }
+
+    console.log("Handling Send API");
+
+    const msgToSend = covertToSendMsg(getAllRelatedMessages(newMessage.id, updatedChats));
+    console.log(`Messages to be Sent: ${JSON.stringify(msgToSend)}`);
     
     try {
       setLoading(true);
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: selectedModel.id,
-          messages: covertToSendMsg(getAllRelatedMessages(newMessage.id, updatedChats)),
+          messages: msgToSend,
           stream: true,
         }),
       });
-      // const data = await response.json();
-      // console.log(data);
+      // const data = await response.text();
+      console.log("Response Headers:", JSON.stringify(response.headers, null, 2));
+      console.log("Response Status:", JSON.stringify(response.status, null, 2));
+      console.log(`response has body: ${!!response.body}`);
 
       if (!response.ok) {
         console.error("Failed to fetch response:", response.status, response.statusText);
@@ -396,7 +412,7 @@ export default function ChatRoom() {
   }
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-gray-100 p-4`}>
+    <SafeAreaView style={tw`flex-1 p-4`}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={tw`flex-1 flex-row`}
@@ -406,10 +422,14 @@ export default function ChatRoom() {
           sidebarExpanded={sidebarExpanded} 
           closeSidebar={() => setSidebarExpanded(false)}
         >
-            <SafeAreaView style={tw`absolute w-full h-full bg-gray-200 p-3 z-10`}>
+            <SafeAreaView style={tw`absolute w-full h-full p-3 z-10`}>
                 <View style={tw`flex flex-row justify-between py-1 px-1.5`}>
-                    <AntDesign name="plus" size={28} color="black" onPress={() => createNewRoom()}/>
-                    <Feather name="arrow-right" size={28} color="black" onPress={() => setSidebarExpanded(false)}/>
+                    <TouchableOpacity onPress={() => createNewRoom()} >
+                      <AntDesign name="plus" size={28} color={dark?darkTheme.icon : lightTheme.icon} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSidebarExpanded(false)} >
+                      <Feather name="arrow-right" size={28} color={dark?darkTheme.icon : lightTheme.icon} />
+                    </TouchableOpacity>
                 </View>
                 <FlatList
                     data={chatRooms}
@@ -418,16 +438,19 @@ export default function ChatRoom() {
                     <TouchableOpacity 
                         onPress={() => {changeRoom(item)}} 
                         style={
-                            tw`p-2 ${item.id === currentChatId ? 'bg-blue-400' : 'bg-white'} 
+                            tw`p-2 ${item.id === currentChatId ? 
+                              `${dark?darkTheme.reversebg0 : lightTheme.reversebg0} ` : 
+                              `${dark?darkTheme.reversebg : lightTheme.reversebg} `} 
                             rounded-lg m-2 flex flex-row`
                         }
                     >
                         <Text style={tw`text-center px-10`}>{item.name}</Text>
-                        <Feather 
-                            style={tw`absolute right-5 pt-1 opacity-25`} 
-                            name="delete" size={24} color="black"
-                            onPress={() => removeChatroom(item.id)}
-                        />
+                        <TouchableOpacity style={tw`absolute right-5 pt-1 opacity-25`} onPress={() => removeChatroom(item.id)} >
+                          <Feather 
+                            name="delete" size={24}
+                            color={item.id !== currentChatId && dark?darkTheme.icon : lightTheme.icon} 
+                          />
+                        </TouchableOpacity>
                     </TouchableOpacity>
                     )}
                 />
@@ -435,17 +458,17 @@ export default function ChatRoom() {
         </Sidebar>
 
         {/* Chat Window */}
-        <View style={tw`flex-grow`}>
+        <View style={tw`flex-grow ${Platform.OS === 'ios' ? '' : 'mt-5'}`}>
             {/* Button to Open Model Selection Modal */}
             <View style={tw`flex flex-row justify-between`}>
                 <TouchableOpacity 
                     style={tw`p-3 rounded mb-4`} 
                     onPress={() => setSidebarExpanded(true)}
                 >
-                    <Feather name="sidebar" size={24} color="black" />
+                    <Feather name="sidebar" size={24} color={dark?darkTheme.icon : lightTheme.icon}  />
                 </TouchableOpacity>
                 <TouchableOpacity style={tw`px-3 py-4 rounded mb-4`} onPress={() => setModalVisible(true)}>
-                    <Text style={tw`text-black text-center font-bold`}>
+                    <Text style={tw`text-center ${dark?darkTheme.text : lightTheme.text} `}>
                     Model: {
                         formatModelName() || "Select a Model"
                     } >
@@ -471,9 +494,12 @@ export default function ChatRoom() {
 
             {/* Input Field & Send Button */}
             {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}> */}
-            <View style={tw`flex-row items-center p-2 bg-white max-h-1/2 rounded-t-3xl`}> 
+            <View style={tw`
+              flex-row items-center p-2 max-h-1/2 rounded-t-3xl
+              ${dark?darkTheme.background : lightTheme.background}
+            `}> 
               <TextInput
-                  style={tw`p-3 flex-1 mr-2`}
+                  style={tw`p-3 flex-1 mr-2 ${dark?darkTheme.text : lightTheme.text} `}
                   value={inputText}
                   multiline={true}
                   onChangeText={setInputText}
@@ -486,25 +512,27 @@ export default function ChatRoom() {
               {loading ? (<ActivityIndicator />) : (<></>)}
             </View>
             <View style={tw`${!isFocused && Platform.OS === 'ios' ? 'mb-13' : ''} 
-              h-10 bg-white flex flex-row items-center px-3 pb-2 justify-between`}>
+              h-10 flex flex-row items-center px-3 pb-2 justify-between
+              ${dark?darkTheme.background : lightTheme.background}
+            `}>
 
               {/* Left Side Icons */}
               <View style={tw`flex flex-row`}>
                 <TouchableOpacity style={tw`px-3 mt-0.5`} onPress={() => {}}>
-                  <AntDesign name="pluscircleo" size={24} color="dimgray" />
+                  <AntDesign name="pluscircleo" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
                 </TouchableOpacity>
                 <TouchableOpacity style={tw`px-3`} onPress={() => {}}>
-                  <MaterialCommunityIcons name="web" size={28} color="dimgray" />
+                  <MaterialCommunityIcons name="web" size={28} color={dark?darkTheme.icon : lightTheme.icon} />
                 </TouchableOpacity>
               </View>
 
               {/* Right Side Icon - Arrow */}
               <TouchableOpacity 
-                style={tw`${!inputText ? 'opacity-50' : ''}`}
+                style={tw`${!inputText ? 'opacity-25' : ''} pb-0.5`}
                 onPress={sendMsg} 
                 disabled={!inputText}
               >
-                <AntDesign name="arrowright" size={24} color="dimgray" />
+                <AntDesign name="arrowup" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
               </TouchableOpacity>
 
             </View>
@@ -514,15 +542,15 @@ export default function ChatRoom() {
 
       {/* Right SideBar */}
       <Sidebar sidebarExpanded={modalVisible} closeSidebar={() => setModalVisible(false)} slideFrom="right">
-        <SafeAreaView style={tw`flex-1 bg-white p-4 ${Platform.OS === 'ios' ? 'mb-8' : ''}`}>
+        <SafeAreaView style={tw`flex-1 p-4 ${Platform.OS === 'ios' ? 'mb-8 mt-2' : ''}`}>
           {selectedItem ? (
             // Full-screen description view
-            <View style={tw`flex-1 p-4`}>
+            <View style={tw`flex-1 p-4 ${Platform.OS === 'ios' ? 'mt-8' : ''}`}>
               <TouchableOpacity onPress={() => setSelectedItem(null)} style={tw`mb-4`}>
-                <Ionicons name="arrow-back" size={24} color="black" />
+                <Ionicons name="arrow-back" size={28} color={dark ? darkTheme.icon : lightTheme.icon} />
               </TouchableOpacity>
               <TextInput
-                style={tw`text-xl font-bold mb-2 p-2 rounded-lg`}
+                style={tw`text-xl font-bold mb-2 p-2 rounded-lg ${dark ? darkTheme.text : lightTheme.text}`}
                 value={selectedItem.name}
                 editable={false}
                 multiline
@@ -534,7 +562,7 @@ export default function ChatRoom() {
                 multiline
               />
               <TextInput
-                style={tw`text-gray-600 bg-gray-100 p-2 rounded-lg`}
+                style={tw`text-gray-400 p-2 rounded-lg`}
                 value={selectedItem.description}
                 editable={false}
                 multiline
@@ -544,18 +572,25 @@ export default function ChatRoom() {
             // Model List with Info Icon
             <>
             <View style={tw`flex flex-row justify-start pt-10 pb-1 px-1.5`}>
-                <Feather name="arrow-left" size={28} color="black" onPress={() => setModalVisible(false)}/>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Feather 
+                    name="arrow-left" size={28} 
+                    color={dark?darkTheme.icon : lightTheme.icon} 
+                  />
+                </TouchableOpacity>
             </View>
               <FlatList
                 data={availableModels}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <View style={tw`flex-row items-center justify-between p-4 border-b border-gray-200`}>
+                  <View style={tw`
+                    flex-row items-center justify-between p-4 border-b border-gray-200
+                  `}>
                     <TouchableOpacity onPress={() => selectModel(item)} style={tw`flex-1`}>
-                      <Text style={tw`text-lg font-bold`}>{item.name}</Text>
+                      <Text style={tw`text-lg ${dark ? darkTheme.text : lightTheme.text}`}>{item.name}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setSelectedItem(item)}>
-                      <Ionicons name="information-circle-outline" size={24} color="blue" />
+                      <Ionicons name="information-circle-outline" size={24} color={dark ? darkTheme.icon : lightTheme.icon} />
                     </TouchableOpacity>
                   </View>
                 )}

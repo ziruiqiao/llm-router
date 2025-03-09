@@ -6,6 +6,8 @@ import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { lightTheme, darkTheme } from '@/constants/theme';
 
 interface Message {
     id: string;
@@ -26,6 +28,8 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
 ) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [newContent, setNewContent] = useState(item.content);
+    const colorScheme = useColorScheme();
+    const [dark, setDark] = useState(false); //colorScheme === 'dark');
 
     const handleEdit = (event: GestureResponderEvent) => {
         setModalVisible(true);
@@ -65,16 +69,20 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                     tw`${item.role === 'user' ? 'self-end' : 'self-start'} 
                     rounded-lg m-2 max-w-4/5`
                 }> 
-                    <View style={
-                        tw`${item.role === 'user' ? 'bg-green-200' : 'bg-white'} 
-                        p-3 rounded-lg`
-                    }>
-                        <Text>{item.content}</Text>
+                    <View style={tw`
+                        ${item.role === 'user' ? 
+                            `px-5 py-2 rounded-3xl ${dark ? darkTheme.background : lightTheme.background}`: 
+                            `py-2 rounded-xl ${dark ? darkTheme.background0 : lightTheme.background0}
+                            ${dark ? '' : 'px-5' }
+                            `
+                        }
+                    `}>
+                        <Text style={tw`text-base ${dark ? darkTheme.text : lightTheme.text}`}>{item.content}</Text>
                     </View>
                     {/* Show copy icon if role is 'assistant' */}
                     {item.role === 'assistant' && (
                         <View style={tw`flex flex-row justify-between mt-2`}>
-                            <Text style={tw`opacity-25`}>{item.modelName}</Text>
+                            <Text style={tw`opacity-75 ${dark ? darkTheme.text2 : lightTheme.text2}`}>{item.modelName}</Text>
                             <TouchableOpacity onPress={copyToClipboard} style={tw`self-end`}>
                                 <Feather name="copy" size={16} color="gray" />
                             </TouchableOpacity>
@@ -90,7 +98,7 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                             >
                                 <FontAwesome6 name="chevron-left" size={18} color="gray" />
                             </TouchableOpacity>
-                            <Text style={tw`opacity-50 text-sm`}>{item.branchNum}/{peers.length}</Text>
+                            <Text style={tw`opacity-75 text-sm ${dark ? darkTheme.text2 : lightTheme.text2}`}>{item.branchNum}/{peers.length}</Text>
                             <TouchableOpacity 
                                 onPress={() => switchNextBranch(item.branchNum)}
                                 disabled={item.branchNum === peers.length}
