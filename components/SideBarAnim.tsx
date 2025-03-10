@@ -40,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarExpanded, closeSidebar, slideF
       
       {/* Sidebar */}
       <Animated.View style={[
-        tw`absolute top-0 left-0 h-full w-full shadow-lg ${dark?darkTheme.background0 : lightTheme.background0}`,
+        tw`absolute top-0 left-0 h-full w-full shadow-lg bg-[${dark?darkTheme.background0 : lightTheme.background0}]`,
         slideFrom === "left" ? tw`left-0` : tw`right-0`, // Position dynamically
         animatedStyle
       ]}>

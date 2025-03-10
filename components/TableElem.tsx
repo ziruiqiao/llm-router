@@ -13,10 +13,10 @@ export default function Profile({value, name}: TableElemProps) {
     const dark = colorScheme === 'dark';
     return (
         <View style={tw`flex flex-col`}>
-            <Text style={tw`text-lg py-1 font-medium ${dark?darkTheme.text : lightTheme.text} `}>
+            <Text style={tw`text-lg py-1 font-medium text-[${dark?darkTheme.text : lightTheme.text}] `}>
                 {value}
             </Text>
-            <Text style={tw`text-xm py-1 ${dark?darkTheme.text : lightTheme.text} `}>
+            <Text style={tw`text-xm py-1 text-[${dark?darkTheme.text : lightTheme.text}] `}>
                 {name}
             </Text>
         </View>

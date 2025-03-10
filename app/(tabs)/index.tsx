@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, {AxiosError} from 'axios';
+import { fetch } from 'expo/fetch';
 import { Ionicons } from '@expo/vector-icons'
 import Feather from '@expo/vector-icons/Feather';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -14,47 +15,17 @@ import MessageComponent from "@/components/MessageComponent";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { lightTheme, darkTheme } from '@/constants/theme';
+import {Message, SendMessage, LLMModel, ChatRoomInterface} from '@/components/customTypes'
 
 import tw from 'twrnc';
 
-
-interface Message {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    parentId?: string;
-    branchNum?: number;
-    modelName?: string;
-}
-
-interface SendMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-interface LLMModel {
-    id: string,
-    name: string,
-    description: string,
-    pricing: {
-      prompt?: number,
-      completion?: number
-    }
-}
-
-interface ChatRoom {
-    id: string;
-    name: string;
-    model: LLMModel;
-    messages: Message[];
-}
-
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const SUMMARY_URL = 'https://openrouter.ai/api/v1/completions';
 const MODELS_URL = 'https://openrouter.ai/api/v1/models/';
 
 
 export default function ChatRoom() {
-  const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const [chatRooms, setChatRooms] = useState<ChatRoomInterface[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [curremtMessages, setCurremtMessages] = useState<Message[]>();
@@ -87,7 +58,11 @@ export default function ChatRoom() {
       setApiKey(key);
     };
     const getAvailableModels = async () => {
-      const response = await axios.get(MODELS_URL);
+      const response = await axios.get(MODELS_URL,{
+        headers: {
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
       setAvailableModels(response.data.data);
     }
     loadChatRooms();
@@ -105,9 +80,33 @@ export default function ChatRoom() {
     setRefreshing(false);
   };
 
-  const saveChatRooms = async (rooms: ChatRoom[]) => {
+  const saveChatRooms = async (rooms: ChatRoomInterface[]) => {
     await AsyncStorage.setItem('chatRooms', JSON.stringify(rooms));
   };
+
+  const updateTitle = async (newChatRooms: ChatRoomInterface[] = chatRooms) => {
+    const response = await fetch(SUMMARY_URL,{
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'qwen/qwen2.5-vl-72b-instruct:free',
+        prompt: "avoid Punctuations, make a 9 words formal summary on this conversation: " + JSON.stringify(covertToSendMsg(curremtMessages || []))
+      }),
+    });
+    const data = await response.json();
+    if (data.choices[0].text) {
+      console.log("Setting new Title!");
+      const updatedChats = newChatRooms.map(chat => 
+        chat.id === currentChatId ? {...chat, name: data.choices[0].text} : chat
+      );
+      console.log(`updated chatrooms: ${JSON.stringify(chatRooms.map(({ messages, model, ...rest }) => (model.name, rest)), null, 2)}`)
+      setChatRooms(updatedChats);
+      saveChatRooms(updatedChats);
+    }
+  }
 
   const sendMsg = async () => {
     const newMsg: Message = {
@@ -124,7 +123,7 @@ export default function ChatRoom() {
     return mess.map(({ role, content }) => ({ role, content }));
   }
 
-  function getAllRelatedMessages(msgId: string, newChatRooms: ChatRoom[] = chatRooms): Message[]{
+  function getAllRelatedMessages(msgId: string, newChatRooms: ChatRoomInterface[] = chatRooms): Message[]{
     const messages: Message[] | undefined = newChatRooms.find(chat => chat.id === currentChatId)?.messages;
     if (!messages) return []
     const messageMap = new Map(messages.map(msg => [msg.id, msg]));
@@ -160,7 +159,7 @@ export default function ChatRoom() {
     return result;
   };
 
-  function findPeers(msgId: string, newChatRooms: ChatRoom[] = chatRooms): Message[] {
+  function findPeers(msgId: string, newChatRooms: ChatRoomInterface[] = chatRooms): Message[] {
     const messages = newChatRooms.find(chat => chat.id === currentChatId)?.messages ?? [];
     if (!messages.length) return [];
 
@@ -198,74 +197,115 @@ export default function ChatRoom() {
     setSelectedBranch(branchId);
   }
 
-  const updateChat = (msg: Message, newChatRooms: ChatRoom[] = chatRooms): ChatRoom[] =>  {
-    const updatedChats = newChatRooms.map(chat => 
+  const updateChat = async (msg: Message, newChatRooms: ChatRoomInterface[] = chatRooms): Promise<ChatRoomInterface[]> =>  {
+    const currentRoom = newChatRooms.find(chat => chat.id === currentChatId);
+    let updatedChats = newChatRooms.map(chat => 
         chat.id === currentChatId 
           ? { ...chat, messages: [...chat.messages, msg] } 
           : chat
     );
+    console.log(`current message length: ${curremtMessages?.length}`)
+    if (curremtMessages!.length > 4 && currentRoom!.name.startsWith('Chat')) {
+      updateTitle(updatedChats);
+    }
+    console.log("update rooms without new title");
     setChatRooms(updatedChats);
     saveChatRooms(updatedChats);
     setSelectedBranch(msg.id);
+    setCurremtMessages(getAllRelatedMessages(msg.id, updatedChats));
     return updatedChats;
   }
 
-  const processStreamedResponse = async (reader: ReadableStreamDefaultReader<Uint8Array>, botMessage: Message) => {
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            // Process each complete line
-            while (true) {
-                const lineEnd = buffer.indexOf('\n');
-                if (lineEnd === -1) break;
-                const line = buffer.slice(0, lineEnd).trim();
-                buffer = buffer.slice(lineEnd + 1);
-
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data === '[DONE]') return;
-
-                    try {
-                        const parsed = JSON.parse(data);
-                        const content = parsed.choices?.[0]?.delta?.content;
-                        if (content) {
-                            botMessage.content += content;
-                        }
-                    } catch {
-                        // Ignore invalid JSON
-                    }
-                }
+  async function processStreamedResponse(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    botMessage: Message,
+    onPartialUpdate: (partialContent: string, partialReason: string) => void
+  ) {
+    const decoder = new TextDecoder('utf-8');
+    let done = false;
+    let content = '';
+    let reason = '';
+  
+    while (!done) {
+      try {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (value) {
+          // console.log(`processStreamedResponse showing raw value: ${value}`);
+          const chunk = decoder.decode(value, { stream: true });
+          // console.log(`processStreamedResponse showing chunks: \n${chunk}`);
+          const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
+          for (const line of lines) {
+            const dataStr = line.replace(/^data:\s*/, '');
+            // console.log(`processStreamedResponse showing JSON data: ${dataStr}`);
+            if (dataStr === '[DONE]') {
+              done = true;
+              break;
             }
+  
+            try {
+              const data = JSON.parse(dataStr);
+              const delta = data?.choices?.[0]?.delta;
+              if (delta) {
+                content += delta.content;
+                reason += delta.reasoning || "";
+                // console.log(content);
+                onPartialUpdate(content, reason);
+              }
+            } catch (e) {
+              console.error('Failed to parse stream data chunk:', e);
+            }
+          }
         }
-    } finally {
-        reader.cancel();
+      } catch (error) {
+        console.error('Error while reading stream:', error);
+        done = true;
+      }
     }
-  };
+
+    botMessage.content = content;
+    botMessage.reasoning = reason;
+    console.log(`New Message: ${JSON.stringify(botMessage, null, 2)}`)
+  }
 
   const handleSendAPI = async (newMessage: Message) => {
-    if (!apiKey || !currentChatId) return;
-    if (!inputText.trim() && newMessage.branchNum === 1) return;
-
-    const updatedChats = updateChat(newMessage);
+    if (!apiKey || !currentChatId) {
+      console.log('Missing apiKey or currentChatId:', { apiKey, currentChatId });
+      return;
+    }
+    
+    if (!inputText.trim() && newMessage.branchNum === 1) {
+      console.log('Input is empty and branchNum is 1, skipping message.');
+      return;
+    }
+    
+    console.log('Updating chat with new message:', newMessage);
+    const updatedChats = await updateChat(newMessage);
+    
     setInputText('');
+    console.log('Cleared input text.');
+    
     const selectedModel: LLMModel | undefined = chatRooms.find(room => room.id == currentChatId)?.model;
-    if (!selectedModel) return;
-
+    if (!selectedModel) {
+      console.log('No selected model found for chatRoom:', currentChatId);
+      return;
+    }
+    
     if (!apiKey) {
+      console.log('API key missing at second check');
       Alert.alert('Error', 'API key not found');
       return;
     }
+    
+    console.log('Proceeding with selected model:', selectedModel.name);
+    
 
     console.log("Handling Send API");
 
     const msgToSend = covertToSendMsg(getAllRelatedMessages(newMessage.id, updatedChats));
     console.log(`Messages to be Sent: ${JSON.stringify(msgToSend)}`);
+
+    if (msgToSend.length === 0) return
     
     try {
       setLoading(true);
@@ -274,16 +314,18 @@ export default function ChatRoom() {
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          Accept: 'text/event-stream'
         },
         body: JSON.stringify({
           model: selectedModel.id,
           messages: msgToSend,
-          stream: true,
+          stream: true
         }),
       });
       // const data = await response.text();
       console.log("Response Headers:", JSON.stringify(response.headers, null, 2));
       console.log("Response Status:", JSON.stringify(response.status, null, 2));
+      console.log("Response Status Msg:", JSON.stringify(response.statusText, null, 2));
       console.log(`response has body: ${!!response.body}`);
 
       if (!response.ok) {
@@ -298,6 +340,8 @@ export default function ChatRoom() {
         parentId: newMessage.id,
         modelName: selectedModel.id.split("/")[1]
       };
+
+      setCurremtMessages(prev => [...(prev || []), botMessage]);
 
       if (!response.body) {
         const fullText = await response.text();
@@ -328,7 +372,16 @@ export default function ChatRoom() {
           console.log({...response});
           throw new Error('Response body is not readable');
         }
-        await processStreamedResponse(reader, botMessage);
+        await processStreamedResponse(reader, botMessage, (partialContent, partialReason) => {
+          if (!partialContent && !partialReason) return;
+
+          const result: any = {};
+          if (partialContent) result.content = partialContent;
+          if (partialReason) result.reasoning = partialReason;
+          setCurremtMessages(prev => {
+            return prev!.map(m => m.id === botMessage.id ? { ...m, ...result} : m);
+          });
+        });
       }
       updateChat(botMessage, updatedChats);
       
@@ -344,7 +397,7 @@ export default function ChatRoom() {
   };
 
   const createNewRoom = (model?:LLMModel) => {
-    const newChatroom: ChatRoom = { 
+    const newChatroom: ChatRoomInterface = { 
         id: Date.now().toString(), 
         name: `Chat ${chatRooms.length + 1}`,
         model: model? model : availableModels.filter(item => item.id === 'deepseek/deepseek-r1')[0],
@@ -389,13 +442,14 @@ export default function ChatRoom() {
     }
   };
 
-  const changeRoom = (room: ChatRoom) => {
+  const changeRoom = (room: ChatRoomInterface) => {
     setCurrentChatId(room.id);
     setSidebarExpanded(false);
+    console.log(chatRooms.map(({ messages, model, ...rest }) => (model.name, rest)))
     
     const messages = room.messages;
     const rootMsgs = messages.filter(msg => msg.parentId === room.id) ?? [];
-    console.log(rootMsgs);
+    // console.log(rootMsgs);
     if (rootMsgs.length > 0) {
       const newBranchId = rootMsgs.find(msg => msg.branchNum === 1)!.id;
       setSelectedBranch(newBranchId);
@@ -423,7 +477,7 @@ export default function ChatRoom() {
           closeSidebar={() => setSidebarExpanded(false)}
         >
             <SafeAreaView style={tw`absolute w-full h-full p-3 z-10`}>
-                <View style={tw`flex flex-row justify-between py-1 px-1.5`}>
+                <View style={tw`flex flex-row justify-between py-1 px-1.5 bg-black`}>
                     <TouchableOpacity onPress={() => createNewRoom()} >
                       <AntDesign name="plus" size={28} color={dark?darkTheme.icon : lightTheme.icon} />
                     </TouchableOpacity>
@@ -438,14 +492,13 @@ export default function ChatRoom() {
                     <TouchableOpacity 
                         onPress={() => {changeRoom(item)}} 
                         style={
-                            tw`p-2 ${item.id === currentChatId ? 
-                              `${dark?darkTheme.reversebg0 : lightTheme.reversebg0} ` : 
-                              `${dark?darkTheme.reversebg : lightTheme.reversebg} `} 
-                            rounded-lg m-2 flex flex-row`
+                            tw`p-2 m-2 mx-2 rounded-lg flex flex-row
+                            ${item.id === currentChatId ? `bg-[${dark?darkTheme.background : lightTheme.background}]`: ``}
+                            `
                         }
                     >
-                        <Text style={tw`text-center px-10`}>{item.name}</Text>
-                        <TouchableOpacity style={tw`absolute right-5 pt-1 opacity-25`} onPress={() => removeChatroom(item.id)} >
+                        <Text style={tw`text-center px-10 text-base text-[${dark?darkTheme.text : lightTheme.text}]`}>{item.name}</Text>
+                        <TouchableOpacity style={tw`absolute right-5 pt-2 opacity-25`} onPress={() => removeChatroom(item.id)} >
                           <Feather 
                             name="delete" size={24}
                             color={item.id !== currentChatId && dark?darkTheme.icon : lightTheme.icon} 
@@ -468,10 +521,10 @@ export default function ChatRoom() {
                     <Feather name="sidebar" size={24} color={dark?darkTheme.icon : lightTheme.icon}  />
                 </TouchableOpacity>
                 <TouchableOpacity style={tw`px-3 py-4 rounded mb-4`} onPress={() => setModalVisible(true)}>
-                    <Text style={tw`text-center ${dark?darkTheme.text : lightTheme.text} `}>
+                    <Text style={tw`text-center text-[${dark?darkTheme.text : lightTheme.text}]`}>
                     Model: {
                         formatModelName() || "Select a Model"
-                    } >
+                    } {'>'}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -496,10 +549,10 @@ export default function ChatRoom() {
             {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}> */}
             <View style={tw`
               flex-row items-center p-2 max-h-1/2 rounded-t-3xl
-              ${dark?darkTheme.background : lightTheme.background}
+              bg-[${dark?darkTheme.background : lightTheme.background}]
             `}> 
               <TextInput
-                  style={tw`p-3 flex-1 mr-2 ${dark?darkTheme.text : lightTheme.text} `}
+                  style={tw`p-3 flex-1 mr-2 text-[${dark?darkTheme.text : lightTheme.text}] `}
                   value={inputText}
                   multiline={true}
                   onChangeText={setInputText}
@@ -513,7 +566,7 @@ export default function ChatRoom() {
             </View>
             <View style={tw`${!isFocused && Platform.OS === 'ios' ? 'mb-13' : ''} 
               h-10 flex flex-row items-center px-3 pb-2 justify-between
-              ${dark?darkTheme.background : lightTheme.background}
+              bg-[${dark?darkTheme.background : lightTheme.background}]
             `}>
 
               {/* Left Side Icons */}
@@ -550,7 +603,7 @@ export default function ChatRoom() {
                 <Ionicons name="arrow-back" size={28} color={dark ? darkTheme.icon : lightTheme.icon} />
               </TouchableOpacity>
               <TextInput
-                style={tw`text-xl font-bold mb-2 p-2 rounded-lg ${dark ? darkTheme.text : lightTheme.text}`}
+                style={tw`text-xl font-bold mb-2 p-2 rounded-lg text-[${dark ? darkTheme.text : lightTheme.text}]`}
                 value={selectedItem.name}
                 editable={false}
                 multiline
@@ -587,7 +640,7 @@ export default function ChatRoom() {
                     flex-row items-center justify-between p-4 border-b border-gray-200
                   `}>
                     <TouchableOpacity onPress={() => selectModel(item)} style={tw`flex-1`}>
-                      <Text style={tw`text-lg ${dark ? darkTheme.text : lightTheme.text}`}>{item.name}</Text>
+                      <Text style={tw`text-lg text-[${dark ? darkTheme.text : lightTheme.text}]`}>{item.name}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setSelectedItem(item)}>
                       <Ionicons name="information-circle-outline" size={24} color={dark ? darkTheme.icon : lightTheme.icon} />
