@@ -23,9 +23,11 @@ export interface LLMModel {
     }
 }
 
+export type ModelLookup = Record<string, LLMModel>;
+
 export interface ChatRoomInterface {
     id: string;
     name: string;
-    model: LLMModel;
+    modelId: string;
     messages: Message[];
 }

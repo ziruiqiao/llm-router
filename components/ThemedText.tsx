@@ -1,60 +1,47 @@
-import { Text, type TextProps, StyleSheet } from 'react-native';
+import { Text, TextProps, StyleProp, TextStyle } from "react-native";
+import { useMemo } from "react";
+import { useThemeColor, useColorScheme } from "@/hooks/useColorScheme";
+import { Colors } from "@/constants/Colors";
+import { textStyles } from "@/constants/TextStyles";
 
-import { useThemeColor } from '@/hooks/useThemeColor';
+const TAILWIND_TEXT_COLOR_REGEX =
+  /\btext-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|black|white)(?:-\d{3})?\b/;
 
-export type ThemedTextProps = TextProps & {
-  lightColor?: string;
-  darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
-};
+type ThemedTextType = keyof typeof textStyles;
+type ColorKey = keyof typeof Colors.light;
 
-export function ThemedText({
-  style,
-  lightColor,
-  darkColor,
-  type = 'default',
-  ...rest
-}: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
-
-  return (
-    <Text
-      style={[
-        { color },
-        type === 'default' ? styles.default : undefined,
-        type === 'title' ? styles.title : undefined,
-        type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        type === 'subtitle' ? styles.subtitle : undefined,
-        type === 'link' ? styles.link : undefined,
-        style,
-      ]}
-      {...rest}
-    />
-  );
+interface ThemedTextProps extends TextProps {
+  type?: ThemedTextType;
+  className?: string;
+  colorValue?: ColorKey;
+  children: React.ReactNode;
 }
 
-const styles = StyleSheet.create({
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 16,
-    color: '#0a7ea4',
-  },
-});
+function classNameHasTextColor(className?: string): boolean {
+  if (!className) return false;
+  return TAILWIND_TEXT_COLOR_REGEX.test(className);
+}
+
+function styleHasColor(style: any): boolean {
+  if (!style) return false;
+  if (Array.isArray(style)) return style.some(styleHasColor);
+  return !!style?.color;
+}
+
+export function ThemedText({ type = "default", className, style, colorValue, ...props }: ThemedTextProps) {
+  const { colorScheme } = useColorScheme();
+
+  const themedStyle = useMemo<StyleProp<TextStyle>>(() => {
+    const baseStyle: TextStyle[] = [textStyles[type]];
+
+    if (!classNameHasTextColor(className) && !styleHasColor(style)) {
+      baseStyle.push({ color: type === "link" ? useThemeColor("text2") : useThemeColor("text") });
+    }
+
+    if (colorValue) baseStyle.push({ color: useThemeColor(colorValue) });
+
+    return [baseStyle, style];
+  }, [type, className, style, colorScheme]);
+
+  return <Text className={className} style={themedStyle} {...props} />;
+}

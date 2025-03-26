@@ -8,8 +8,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import {Message} from '@/components/customTypes'
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { lightTheme, darkTheme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useColorScheme';
 import Markdown from 'react-native-markdown-display';
 import { useFonts } from 'expo-font';
 import { Paragraph } from 'react-native-paper';
@@ -25,21 +24,22 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
 ) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [newContent, setNewContent] = useState(item.content);
-    const colorScheme = useColorScheme();
+    const { colorScheme, colors } = useThemeColors();
     const [showReasoning, setShowReasoning] = useState(false);
-    const [dark, setDark] = useState(colorScheme === 'dark');
 
     const handleEdit = (event: GestureResponderEvent) => {
         setModalVisible(true);
     };
 
     const copyToClipboard = async (content?: any) => {
-        if (content) {
-            await Clipboard.setStringAsync(content);
+        const toCopy = content || item.content;
+        console.log('Copying:', toCopy); // ✅ log for debugging
+        if (typeof toCopy === 'string' && toCopy.trim() !== '') {
+          await Clipboard.setStringAsync(toCopy);
+          alert('Copied to clipboard!');
         } else {
-            await Clipboard.setStringAsync(item.content);
+          alert('Nothing to copy.');
         }
-        alert('Copied to clipboard!');
     };
 
     const switchNextBranch = async (currentBranchNum: number) => {
@@ -88,26 +88,26 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
     const styles = () =>
         StyleSheet.create({
             body: {
-                color: dark ? darkTheme.text3 : lightTheme.text3,
+                color: colors.text3,
             },
             text: {
-                color: dark ? darkTheme.text3 : lightTheme.text3,
+                color: colors.text3,
                 fontFamily: 'Serif',
                 fontSize: 15,
                 lineHeight: 20
             },
             code_inline: {
-                backgroundColor: dark ? darkTheme.background : lightTheme.background,
+                backgroundColor: colors.background,
             },
             code_block: {
-                backgroundColor: dark ? darkTheme.background : lightTheme.background,
+                backgroundColor: colors.background,
                 overflowX: 'scroll',
                 minWidth: '100%',
                 flexDirection: 'row',
             },
             fenceView: {
-                backgroundColor: dark ? darkTheme.background : lightTheme.background,
-                color: dark ? darkTheme.text3 : lightTheme.text3,
+                backgroundColor: colors.background,
+                color: colors.text3,
                 paddingRight: 10,
                 borderWidth: 0,
                 borderRadius: 6,
@@ -125,7 +125,7 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                 }),
             },
             fenceNew: {
-                color: dark ? darkTheme.text3 : lightTheme.text3,
+                color: colors.text3,
                 padding: 10,
                 lineHeight: 18,
 
@@ -169,27 +169,29 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                     
                         {/* Reasoning Content */}
                         {showReasoning && (
-                            <View style={tw`py-2 pl-5 pr-2 rounded-md bg-[${dark ? darkTheme.reasonBackground : lightTheme.reasonBackground}]`}>
-                                <Text style={tw`text-base text-[${dark ? darkTheme.text : lightTheme.text}]`}>
+                            <View style={tw`py-2 pl-5 pr-2 rounded-md bg-[${colors.reasonBackground}]`}>
+                                <Text style={tw`text-base text-[${colors.text}]`}>
                                     {item.reasoning}
                                 </Text>
                             </View>
                         )}
                     </View>
                 )}
-                <View style={tw`
-                    ${item.role === 'user' ? `px-5 py-2 rounded-3xl bg-[${dark ? darkTheme.background : lightTheme.background}]`: `py-2
-                        ${dark ? '' : 'px-5' }
-                        `
-                    }
-                `}>
-                        <MarkdownWrapper>{item.content}</MarkdownWrapper>
-                </View>
+                <TouchableOpacity
+                    onLongPress={handleEdit}
+                    activeOpacity={1}
+                    style={tw`
+                        ${item.role === 'user' ? `px-5 py-2 rounded-3xl bg-[${colors.background}]`: `py-2
+                        ${colorScheme === 'dark' ? '' : 'px-5' }
+                        `}
+                    `}>
+                    <MarkdownWrapper>{item.content}</MarkdownWrapper>
+                </TouchableOpacity>
                 {/* Show copy icon if role is 'assistant' */}
                 {item.role === 'assistant' && (
                     <View style={tw`flex flex-row justify-between mt-2`}>
-                        <Text style={tw`opacity-75 text-[${dark ? darkTheme.text2 : lightTheme.text2}]`}>{item.modelName}</Text>
-                        <TouchableOpacity onPress={copyToClipboard} style={tw`self-end`}>
+                        <Text style={tw`opacity-75 text-[${colors.text2}]`}>{item.modelName}</Text>
+                        <TouchableOpacity onPress={() => copyToClipboard(item.content)} style={tw`self-end`}>
                             <Feather name="copy" size={16} color="gray" />
                         </TouchableOpacity>
                     </View>
@@ -198,15 +200,15 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                 {(item.role === 'user' && peers.length > 1) && (
                     <View style={tw`flex flex-row justify-between mt-2`}>
                         <TouchableOpacity 
-                            onPress={() => switchLastBranch(item.branchNum || 0)}
+                            onPress={() => {switchLastBranch(item.branchNum || 0)}}
                             disabled={item.branchNum === 1}
                             style={tw`px-2 mt-[1px]`}
                         >
                             <FontAwesome6 name="chevron-left" size={18} color="gray" />
                         </TouchableOpacity>
-                        <Text style={tw`opacity-75 text-sm text-[${dark ? darkTheme.text2 : lightTheme.text2}]`}>{item.branchNum}/{peers.length}</Text>
+                        <Text style={tw`opacity-75 text-sm text-[${colors.text2}]`}>{item.branchNum}/{peers.length}</Text>
                         <TouchableOpacity 
-                            onPress={() => switchNextBranch(item.branchNum || 0)}
+                            onPress={() =>  {switchNextBranch(item.branchNum || 0)}}
                             disabled={item.branchNum === peers.length}
                             style={tw`px-2 mt-[1px]`}
                         >
@@ -216,15 +218,6 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
                     </View>
                 )}
             </View>
-            {item.role === 'user' && (
-                <TouchableOpacity
-                    onLongPress={(event) => handleEdit(event)}
-                    style={StyleSheet.absoluteFillObject}
-                >
-                    {/* Empty view to capture the gesture only */}
-                    <View style={{ flex: 1 }} />
-                </TouchableOpacity>
-            )}
 
             {/* Modal for Editing */}
             <Modal visible={modalVisible} animationType="slide" transparent={true}>

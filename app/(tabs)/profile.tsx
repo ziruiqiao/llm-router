@@ -9,8 +9,7 @@ import tw from 'twrnc';
 import { TextInput, TouchableWithoutFeedback, TouchableOpacity } from "react-native-gesture-handler";
 import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { lightTheme, darkTheme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useColorScheme';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -19,8 +18,7 @@ export default function Profile() {
     const [totalCredit, setTotalCredit] = useState(0.0);
     const [chatHistory, setChatHistory] = useState(0);
     const [apiKey, setApiKey] = useState("");
-    const colorScheme = useColorScheme();
-    const [dark, setDark] = useState(colorScheme === 'dark');
+    const { colors } = useThemeColors();
     
     const getCredit = async () => {
         try {
@@ -86,7 +84,7 @@ export default function Profile() {
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
                 <SafeAreaView>
                     <View style={tw`flex flex-col p-10`}>
-                        <Text style={tw`text-3xl pt-10 pb-5 font-medium text-[${dark?darkTheme.text : lightTheme.text}] `}>
+                        <Text style={tw`text-3xl pt-10 pb-5 font-medium text-[${colors.text}] `}>
                             User Profile
                         </Text>
                         <View style={tw`flex flex-row justify-between`}>
@@ -95,9 +93,9 @@ export default function Profile() {
                             <TableElem name="Chat History" value={chatHistory}/>
                         </View>
                         <View style={tw`flex flex-col pt-12`}>
-                            <Text style={tw`text-[${dark?darkTheme.text : lightTheme.text}]`}>Input your OpenRouter API Key: </Text>
+                            <Text style={tw`text-[${colors.text}]`}>Input your OpenRouter API Key: </Text>
                             <TextInput
-                                style={tw`text-[${dark ? darkTheme.text : lightTheme.text}] border border-gray-700 mt-2 h-10 rounded-md `}
+                                style={tw`text-[${colors.text}] border border-gray-700 mt-2 h-10 rounded-md `}
                                 placeholder="Input API Key here..."
                                 onChangeText={setApiKey}
                                 value={apiKey}
@@ -110,10 +108,10 @@ export default function Profile() {
                         </View>
                         <View style={tw`flex flex-row mt-4 pt-4 justify-between`}>
                             <TouchableOpacity onPress={() => setApiKey('')}>
-                                <MaterialIcons name="clear" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
+                                <MaterialIcons name="clear" size={24} color={colors.icon} />
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => pasteFromClipboard()}>
-                                <FontAwesome6 name="paste" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
+                                <FontAwesome6 name="paste" size={24} color={colors.icon} />
                             </TouchableOpacity>
                         </View>
                     </View>

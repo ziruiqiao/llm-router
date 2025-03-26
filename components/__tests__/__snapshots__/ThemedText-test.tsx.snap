@@ -4,17 +4,16 @@ exports[`renders correctly 1`] = `
 <Text
   style={
     [
-      {
-        "color": "#11181C",
-      },
-      {
-        "fontSize": 16,
-        "lineHeight": 24,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+      [
+        {
+          "fontFamily": "Montserrat",
+          "fontSize": 16,
+          "fontWeight": "400",
+        },
+        {
+          "color": "#000000",
+        },
+      ],
       undefined,
     ]
   }
