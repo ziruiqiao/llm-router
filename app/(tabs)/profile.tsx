@@ -72,10 +72,6 @@ export default function Profile() {
         setApiKey(text);
     };
 
-    const gotoOpenrouter = () => {
-        Linking.openURL('https://openrouter.ai/settings/keys');
-    }
-
     useEffect(() => {
         getApiKey();
         saveApiKey();
@@ -119,12 +115,10 @@ export default function Profile() {
                             </TouchableOpacity>
                         </View>
                         <TouchableOpacity
-                            style={tw`text-[${colors.tint}]`}
                             onPress={() => {
-                                // Example: open external link
                                 Linking.openURL("https://openrouter.ai/settings/keys");
                             }}
-                            >
+                        >
                             <Text style={tw`text-blue-500 underline text-base mt-4 text-center`}>
                             Get Openrouter API Key
                             </Text>

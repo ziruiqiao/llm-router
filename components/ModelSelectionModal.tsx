@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import React, {useState} from 'react';
+import { View, Text, TouchableOpacity, FlatList, TextInput, SectionList } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
 import { LLMModel } from '@/types/chat';
@@ -33,6 +33,39 @@ export default function ModelSelectionModal({
 }: ModelSelectionModalProps) {
   const [selectedItem, setSelectedItem] = React.useState<LLMModel | null>(null);
   const { colors } = useThemeColors();
+
+  // Add this parent-level state to track which sections are expanded
+  const [expandedSections, setExpandedSections] = React.useState<{ [title: string]: boolean }>({});
+
+  function toggleSection(title: string) {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
+  }
+
+  const groupModelsByProvider = (models: LLMModel[]) => {
+    const sections: { title: string; data: LLMModel[] }[] = [];
+    const providerMap: Record<string, LLMModel[]> = {};
+  
+    models.forEach(model => {
+      const provider = model.id.split("/")[0];
+      if (!providerMap[provider]) providerMap[provider] = [];
+      providerMap[provider].push(model);
+    });
+  
+    // Sort providers by number of models (descending)
+    const sortedProviders = Object.keys(providerMap).sort(
+      (a, b) => providerMap[b].length - providerMap[a].length
+    );
+  
+    // Create sections in the sorted order
+    for (const provider of sortedProviders) {
+      sections.push({ title: provider, data: providerMap[provider] });
+    }
+  
+    return sections;
+  };
 
   return (
     <Sidebar sidebarExpanded={visible} closeSidebar={onClose} slideFrom="right">
@@ -73,31 +106,52 @@ export default function ModelSelectionModal({
                 <Feather name="arrow-left" size={28} color={colors.icon} />
               </TouchableOpacity>
             </View>
-            <FlatList
-              data={Object.values(availableModels)}
+            <SectionList
+              sections={groupModelsByProvider(Object.values(availableModels))}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View
-                  style={tw`
-                    flex-row items-center justify-between p-4 border-b border-gray-200
-                  `}
-                >
+              renderSectionHeader={({ section: { title } }) => {
+                // Remove the inline useState call and use expandedSections instead
+                const isExpanded = expandedSections[title] ?? true;
+                return (
                   <TouchableOpacity 
-                    onPress={() => onSelectModel(item)} 
-                    style={tw`flex-1`}
-                    testID={`model-item-${item.id}`}
+                    onPress={() => toggleSection(title)}
+                    style={tw`flex-row items-center justify-between px-4 py-2`}
                   >
-                    <Text style={tw`text-lg text-[${colors.text}]`}>{item.name}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setSelectedItem(item)} testID={`info-icon-${item.id}`}>
+                    <Text style={tw`text-xl font-bold text-[${colors.text}]`}>
+                      {title}
+                    </Text>
                     <Ionicons
-                      name="information-circle-outline"
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
                       size={24}
                       color={colors.icon}
                     />
                   </TouchableOpacity>
-                </View>
-              )}
+                );
+              }}
+              renderItem={({ item, section }) => {
+                // Remove the inline useState call; only render items for expanded sections
+                if (!expandedSections[section.title]) return null;
+
+                return (
+                  <View style={tw`flex-row items-center justify-between p-4 border-b border-gray-200`}>
+                    <TouchableOpacity 
+                      onPress={() => onSelectModel(item)} 
+                      style={tw`flex-1`}
+                      testID={`model-item-${item.id}`}
+                    >
+                      <Text style={tw`text-lg text-[${colors.text}]`}>{item.name}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSelectedItem(item)} testID={`info-icon-${item.id}`}>
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={24}
+                        color={colors.icon}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                );
+              }}
+              extraData={availableModels}
             />
           </>
         )}

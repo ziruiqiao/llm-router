@@ -20,6 +20,10 @@ export interface LLMModel {
   pricing: Record<string, any>;
 }
 
+export interface ModelLookup {
+  [key: string]: LLMModel;
+} 
+
 export interface ChatRoomInterface {
   id: string;
   name: string;
@@ -27,6 +31,3 @@ export interface ChatRoomInterface {
   messages: Message[];
 }
 
-export interface ModelLookup {
-  [key: string]: LLMModel;
-} 
