@@ -66,6 +66,7 @@ export async function generateTitle(apiKey: string, messages: SendMessage[]): Pr
     });
     
     const data = await response.json();
+    console.log('new title:', data.choices[0].text);
     return data.choices[0].text || "New Chat";
   } catch (error) {
     console.error("Error generating title:", error);
@@ -86,7 +87,7 @@ export async function sendMessage(
   modelId: string,
   messages: SendMessage[],
   onStreamUpdate: (content: string, reason: string) => void
-): Promise<Message> {
+): Promise<{ content: string; reasoning: string }> {
   const response = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -104,14 +105,6 @@ export async function sendMessage(
   if (!response.ok) {
     throw new Error(`Failed to fetch response: ${response.status} ${response.statusText}`);
   }
-
-  const botMessage: Message = {
-    id: Date.now().toString(),
-    role: "assistant",
-    content: "",
-    parentId: messages[messages.length - 1].role === "user" ? messages[messages.length - 1].content : "",
-    modelName: modelId.split("/")[1],
-  };
 
   if (!response.body) {
     const fullText = await response.text();
@@ -136,17 +129,11 @@ export async function sendMessage(
         console.error("Error parsing SSE data:", e);
       }
     }
-    botMessage.content = content;
-    botMessage.reasoning = reason;
+    return { content, reasoning: reason };
   } else {
     const reader = response.body.getReader();
-    if (!reader) {
-      throw new Error("Response body is not readable");
-    }
-    await processStreamedResponse(reader, botMessage, onStreamUpdate);
+    return await processStreamedResponse(reader, onStreamUpdate);
   }
-
-  return botMessage;
 }
 
 /**
@@ -158,9 +145,8 @@ export async function sendMessage(
  */
 async function processStreamedResponse(
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  botMessage: Message,
   onStreamUpdate: (content: string, reason: string) => void
-): Promise<void> {
+): Promise<{ content: string; reasoning: string }> {
   const decoder = new TextDecoder("utf-8");
   let done = false;
   let content = "";
@@ -199,6 +185,5 @@ async function processStreamedResponse(
     }
   }
 
-  botMessage.content = content;
-  botMessage.reasoning = reason;
+  return { content, reasoning: reason };
 } 

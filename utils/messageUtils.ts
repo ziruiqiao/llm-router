@@ -55,8 +55,35 @@ export function getAllRelatedMessages(id: string, messages: Message[]): Message[
 
   result.sort((a, b) => getDepth(a) - getDepth(b));
 
+  console.log('Related Messages:\n' + result.map(
+    m => JSON.stringify({ ...m, content: m.content.slice(0, 10) })).join('\n\n'));
+
   return result;
 }
+
+
+/**
+ * Gets the last child message of a given message
+ * @param msgId - ID of the parent message
+ * @param messages - Array of all messages
+ * @returns Message | undefined - The last child message or undefined if none exists
+ */
+export function getLastChildMessage(msgId: string, messages: Message[]): Message | undefined {
+  if (!messages.length) return undefined;
+  
+  // Find the direct child with branchNum == 1
+  const child = messages.find(m => m.parentId === msgId && m.branchNum === 1);
+  
+  if (!child) return undefined;
+  
+  // Recursively check if this child has its own child with branchNum == 1
+  const grandchild = getLastChildMessage(child.id, messages);
+  
+  // If there's a grandchild, return it (recursively getting the last descendant)
+  // Otherwise return the direct child
+  return grandchild || child;
+}
+
 
 /**
  * Finds all peer messages that share the same parent ID

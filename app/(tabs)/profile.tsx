@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as AuthSession from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
-import { Text, View, Keyboard, Button } from 'react-native';
+import { Text, View, Keyboard, Button, Linking } from 'react-native';
 import TableElem from '@/components/TableElem';
 import tw from 'twrnc';
 import { TextInput, TouchableWithoutFeedback, TouchableOpacity } from "react-native-gesture-handler";
@@ -72,6 +72,10 @@ export default function Profile() {
         setApiKey(text);
     };
 
+    const gotoOpenrouter = () => {
+        Linking.openURL('https://openrouter.ai/settings/keys');
+    }
+
     useEffect(() => {
         getApiKey();
         saveApiKey();
@@ -82,7 +86,7 @@ export default function Profile() {
     return (
         <SafeAreaProvider>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                <SafeAreaView>
+                <SafeAreaView>https://openrouter.ai/settings/keys
                     <View style={tw`flex flex-col p-10`}>
                         <Text style={tw`text-3xl pt-10 pb-5 font-medium text-[${colors.text}] `}>
                             User Profile
@@ -114,6 +118,17 @@ export default function Profile() {
                                 <FontAwesome6 name="paste" size={24} color={colors.icon} />
                             </TouchableOpacity>
                         </View>
+                        <TouchableOpacity
+                            style={tw`text-[${colors.tint}]`}
+                            onPress={() => {
+                                // Example: open external link
+                                Linking.openURL("https://openrouter.ai/settings/keys");
+                            }}
+                            >
+                            <Text style={tw`text-blue-500 underline text-base mt-4 text-center`}>
+                            Get Openrouter API Key
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                     
                 </SafeAreaView>

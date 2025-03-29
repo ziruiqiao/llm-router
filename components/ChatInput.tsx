@@ -37,7 +37,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   setIsFocused,
   testID,
 }) => {
-  const { colors } = useThemeColors();
 
   return (
     <>

@@ -71,6 +71,7 @@ export async function updateChatTitle(
 ): Promise<ChatRoomInterface[]> {
   try {
     const title = await generateTitle(apiKey, convertToSendMsg(messages));
+    console.log('new title:', title);
     const updatedChats = chatRooms.map((chat) =>
       chat.id === currentChatId ? { ...chat, name: title } : chat
     );

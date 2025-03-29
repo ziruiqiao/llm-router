@@ -8,7 +8,10 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   testEnvironment: 'jsdom',
-  testMatch: ['**/__tests__/**/*.test.[jt]s?(x)'],
+  testMatch: [
+    '**/__tests__/**/*.test.[jt]s?(x)',
+    "**/utils/**/*.test.ts"
+  ],
   collectCoverageFrom: [
     '**/*.{js,jsx,ts,tsx}',
     '!**/coverage/**',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   SafeAreaView,
   Text,
@@ -18,7 +18,8 @@ import MessageComponent from "@/components/MessageComponent";
 import { useThemeColors } from "@/hooks/useColorScheme";
 import { Message, LLMModel, ChatRoomInterface, ModelLookup } from "@/types/chat";
 import { validateApiKey, getAvailableModels, sendMessage } from "@/services/api";
-import { convertToSendMsg, getAllRelatedMessages, findPeers, formatModelName } from "@/utils/messageUtils";
+import { convertToSendMsg, getAllRelatedMessages, findPeers, 
+  formatModelName, getLastChildMessage } from "@/utils/messageUtils";
 import { migrateChatRooms, saveChatRooms, updateChatTitle, 
   createNewRoom, removeChatroom, updateRoomModel } from "@/utils/chatRoomUtils";
 import tw from "twrnc";
@@ -33,29 +34,68 @@ export default function ChatRoom() {
   const [chatRooms, setChatRooms] = useState<ChatRoomInterface[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string>("");
   const [selectedBranch, setSelectedBranch] = useState<string>("");
+
   const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelLookup>({});
   const [apiKey, setApiKey] = useState("");
   const [inputText, setInputText] = useState("");
-  const [selectedItem, setSelectedItem] = useState<LLMModel | null>();
   const [modalVisible, setModalVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { colors } = useThemeColors();
+  const hasRunRef = useRef(false);
+
+  useEffect(() => {
+    console.log('currentChatId changed:', currentChatId);
+  }, [currentChatId]);
+
+  useEffect(() => {
+    console.log('selectedBranch changed:', selectedBranch); 
+  }, [selectedBranch]);
+
+  useEffect(() => {
+    console.log('currentMessages changed:', JSON.stringify(currentMessages)); 
+  }, [currentMessages]);
 
   useEffect(() => {
     loadInitialData();
   }, []);
 
   useEffect(() => {
-    setCurrentMessages(getAllRelatedMessages(selectedBranch, chatRooms.find(room => room.id === currentChatId)?.messages || [], currentChatId));
+    const currentRoom = chatRooms.find(room => room.id === currentChatId);
+    const currentRoomMsgs = currentRoom?.messages || [];
+    const relatedMessages = getAllRelatedMessages(selectedBranch, currentRoomMsgs)
+    console.log('roomMessages:\n' + chatRooms.find(room => room.id === currentChatId)?.messages
+    .map(m => JSON.stringify({ ...m, content: m.content.slice(0, 10) }))
+    .join('\n\n'));
+    if (relatedMessages.length > 0 || currentRoomMsgs.length === 0)
+      setCurrentMessages(relatedMessages);
+    if (currentRoomMsgs.length > 0) {
+      setSelectedBranch(getLastChildMessage(selectedBranch, relatedMessages)?.id || selectedBranch);
+    } else {
+      setSelectedBranch(currentRoom?.id || "");
+    }
   }, [selectedBranch, currentChatId]);
+
+  useEffect(() => {
+    if (hasRunRef.current) return;
+    const currentRoom = chatRooms.find(chat => chat.id === currentChatId);
+    if (currentRoom && currentRoom.messages.length > 4 && currentRoom.name.startsWith("Chat")) {
+      const updateTitle = async () => {
+        await updateChatTitle(apiKey, currentRoom.messages, currentChatId, chatRooms);
+      };
+  
+      updateTitle();
+      hasRunRef.current = true;
+    }
+  }, [currentMessages]);
 
   const loadInitialData = async () => {
     const key = await AsyncStorage.getItem("API_KEY");
     if (key) setApiKey(key);
+    console.log(`loadInitialData key: ${key}`);
     
     const migratedRooms = await migrateChatRooms();
     setChatRooms(migratedRooms);
@@ -69,34 +109,26 @@ export default function ChatRoom() {
     setCurrentMessages(
       getAllRelatedMessages(
         selectedBranch, 
-        chatRooms.find(room => room.id === currentChatId)?.messages || [], currentChatId
+        chatRooms.find(room => room.id === currentChatId)?.messages || []
       )
     );
     setRefreshing(false);
   };
 
-  const handleSendMessage = async (messageToSend?: Message) => {
-    if (!apiKey || !currentChatId) {
-      if (!apiKey) console.log("Missing API key");
-      if (!currentChatId) console.log("Missing current chat ID"); 
-      return;
-    }
-
-    if (!messageToSend && !inputText.trim()) {
-      console.log("Missing input text");
-      return;
-    }
-
+  const SendMessage = async (msg?: Message) => {
     const currentRoom = chatRooms.find((room) => room.id === currentChatId);
+    console.log('Found current room:', currentRoom?.id);
     if (!currentRoom) return;
 
     let newMessage: Message;
-    if (messageToSend) {
+    if (msg) {
+      console.log('Using provided message:', msg);
       newMessage = {
-        ...messageToSend,
-        branchNum: messageToSend.branchNum || 1,
+        ...msg,
+        branchNum: msg.branchNum || 1,
       };
     } else {
+      console.log('Creating new message from input text:', inputText);
       newMessage = {
         id: Date.now().toString(),
         role: "user",
@@ -107,77 +139,108 @@ export default function ChatRoom() {
       setInputText("");
     }
 
-    const updatedChats = await updateChat(newMessage);
+    console.log('Adding new message to room:', newMessage);
+    currentRoom.messages.push(newMessage);
+    // setSelectedBranch(newMessage.id);
+    setCurrentMessages(
+      getAllRelatedMessages(newMessage.id, currentRoom.messages)
+    );
 
     try {
       setLoading(true);
+      console.log('Validating API key...');
       const isValidKey = await validateApiKey(apiKey);
       if (!isValidKey) {
+        console.log('API key validation failed');
         throw new Error("Invalid API key");
       }
-
-      const newCurrentRoom = updatedChats.find((room) => room.id === currentChatId);
-      if (!newCurrentRoom) return;
+      console.log('API key validated successfully');
 
       const messagesToSend = convertToSendMsg(
-        getAllRelatedMessages(newMessage.id, newCurrentRoom.messages, currentChatId)
+        getAllRelatedMessages(newMessage.id, currentRoom.messages)
       );
+      console.log('Messages to send:', messagesToSend);
       if (messagesToSend.length === 0) return;
 
-      const botMessage = await sendMessage(
+      console.log('Sending message to API with model:', currentRoom.modelId);
+      const botId = Date.now().toString();
+      const botMessage: Message = {
+        id: botId,
+        role: "assistant",
+        content: "",
+        parentId: newMessage.id,
+        modelName: currentRoom.modelId.split("/")[1],
+        branchNum: 1,
+      };
+      
+      setCurrentMessages(prev => [...prev, botMessage]);
+      setSelectedBranch(botId);
+      const { content, reasoning } = await sendMessage(
         apiKey,
         currentRoom.modelId,
         messagesToSend,
         (content, reason) => {
+          // console.log("Streaming content:", content.slice(0, 50));
           setCurrentMessages(prev => {
-            const messageExists = prev.some(m => m.id === botMessage.id);
-            if (messageExists) {
-              return prev.map(m => m.id === botMessage.id ? { ...m, content, reasoning: reason } : m);
-            } else {
-              return [...prev, { ...botMessage, content, reasoning: reason }];
-            }
+            const updated = prev.map(m => m.id === botId ? { ...m, content, reasoning: reason } : m);
+            return [...updated];
           });
         }
       );
-      botMessage.parentId = newMessage.id;
-      botMessage.branchNum = newMessage.branchNum;
+      console.log('Received complete bot response:', botMessage);
 
-      await updateChat(botMessage, updatedChats);
+      const finalBotMessage: Message = {
+        ...botMessage,
+        parentId: newMessage.id,
+        content,
+        reasoning,
+      };
+      // botMessage.branchNum = newMessage.branchNum;
+
+      console.log('Adding bot message to room:', finalBotMessage);
+      currentRoom.messages.push(finalBotMessage);
+      setCurrentMessages(
+        getAllRelatedMessages(botId, currentRoom.messages)
+      );
+
+      const updatedRooms = chatRooms.map(room =>
+        room.id === currentRoom.id ? { ...currentRoom } : room
+      );
+      setChatRooms(updatedRooms);
+      saveChatRooms(updatedRooms);
+      
+      // await updateChat(botMessage, updatedChats);
     } catch (error) {
       console.error("Error sending message:", error);
       Alert.alert("Error", error instanceof Error ? error.message : "Failed to send message");
     } finally {
+      console.log('Message handling completed');
       setLoading(false);
     }
-  };
+  }
 
-  const updateChat = async (newMessage: Message, currentRooms: ChatRoomInterface[] = chatRooms): Promise<ChatRoomInterface[]> => {
-    const updatedRooms = currentRooms.map(chat => {
-      if (chat.id === currentChatId) {
-        console.log(`updateChat newMessage: ${JSON.stringify(newMessage)}`);
-        console.log(`updateChat chat.messages: ${JSON.stringify(chat.messages)}`);
-        const updatedMessages = [...chat.messages, newMessage];
-        // console.log('Updated messages:', updatedMessages);
-        return { ...chat, messages: updatedMessages };
-      }
-      return chat;
-    });
-
-    const currentRoom = updatedRooms.find(chat => chat.id === currentChatId);
-    if (currentRoom && currentRoom.messages.length > 4 && currentRoom.name.startsWith("Chat")) {
-      await updateChatTitle(apiKey, currentRoom.messages, currentChatId, updatedRooms);
+  const handleSendMessage = async () => {
+    if (currentChatId === "") {
+      handleCreateNewRoom();
+    }
+    if (!apiKey || !inputText.trim()) {
+      if (!apiKey) console.log("Missing API key");
+      if (!inputText.trim()) console.log("Missing input text");
+      return;
     }
 
-    setChatRooms(updatedRooms);
-    await saveChatRooms(updatedRooms);
-    setSelectedBranch(newMessage.id);
-    setCurrentMessages(
-      getAllRelatedMessages(
-        newMessage.id, 
-        updatedRooms.find(room => room.id === currentChatId)?.messages || [], currentChatId
-      )
-    );
-    return updatedRooms;
+    await SendMessage();
+  };
+
+  const changeHistoryMessage = async (msg: Message) => {
+    if (!apiKey || !currentChatId || !msg) {
+      if (!apiKey) console.log("Missing API key");
+      if (!currentChatId) console.log("Missing current chat ID"); 
+      if (!msg) console.log("Missing input message");
+      return;
+    }
+
+    await SendMessage(msg);
   };
 
   const handleCreateNewRoom = (model?: LLMModel) => {
@@ -231,7 +294,6 @@ export default function ChatRoom() {
       setSelectedBranch(newBranchId || room.id);
     } else {
       setSelectedBranch(room.id);
-      setCurrentMessages([]);
     }
   };
 
@@ -243,7 +305,10 @@ export default function ChatRoom() {
           <SafeAreaView style={tw`absolute w-full h-full p-3 z-10`}>
             <View style={tw`flex flex-row justify-between py-1 px-1.5 bg-black`}>
               <TouchableOpacity 
-                onPress={() => handleCreateNewRoom()}
+                onPress={() => {
+                  setSidebarExpanded(false);
+                  handleCreateNewRoom()
+                }}
                 testID="new-room-button"
               >
                 <AntDesign name="plus" size={28} color={colors.icon} />
@@ -257,7 +322,10 @@ export default function ChatRoom() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  onPress={() => handleChangeRoom(item)}
+                  onPress={() => {
+                    setSidebarExpanded(false);
+                    handleChangeRoom(item)
+                  }}
                   style={tw`p-2 m-2 mx-2 rounded-lg flex flex-row
                     ${item.id === currentChatId ? `bg-[${colors.background}]` : ``}
                   `}
@@ -291,7 +359,9 @@ export default function ChatRoom() {
               testID="model-selection-button"
             >
               <Text style={tw`text-center text-[${colors.text}]`}>
-                Model: {formatModelName(chatRooms.find(room => room.id === currentChatId)?.modelId || "")} {">"}
+                Model: {formatModelName(
+                  chatRooms.find(room => room.id === currentChatId)?.modelId || "deepseek/deepseek-chat-v3-0324:free"
+                )} {">"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -299,21 +369,26 @@ export default function ChatRoom() {
           {/* Messages */}
           <FlatList
             data={currentMessages}
-            keyExtractor={(item, index) => index.toString()}
+            keyExtractor={(item) => item.id}
+            extraData={currentMessages}
             showsVerticalScrollIndicator={false}
             testID="messages-flatlist"
-            renderItem={({ item }) => (
-              <MessageComponent
-                key={item.id}
-                item={item}
-                updateMessage={(id, text) => {
-                  const newMsg = { ...item, id: Date.now().toString(), content: text, branchNum: (item.branchNum || 0) + 1 };
-                  handleSendMessage(newMsg);
-                }}
-                switchBranch={setSelectedBranch}
-                peers={findPeers(item.id, chatRooms.find(room => room.id === currentChatId)?.messages || [])}
-              />
-            )}
+            renderItem={({ item }) => {
+              const peers = findPeers(item.id, chatRooms.find(room => room.id === currentChatId)?.messages || []);
+              const branchNum = peers.length + 1;
+            
+              return (
+                <MessageComponent
+                  item={item}
+                  updateMessage={(id, text) => {
+                    const msg = { ...item, id: Date.now().toString(), content: text, branchNum };
+                    changeHistoryMessage(msg);
+                  }}
+                  switchBranch={setSelectedBranch}
+                  peers={peers}
+                />
+              );
+            }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
 
@@ -340,3 +415,4 @@ export default function ChatRoom() {
     </SafeAreaView>
   );
 }
+

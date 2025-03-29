@@ -5,8 +5,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -52,7 +52,8 @@
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
     "sanitize-html": "^2.14.0",
-    "twrnc": "^4.6.1"
+    "twrnc": "^4.6.1",
+    "expo-dev-client": "~5.0.15"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
