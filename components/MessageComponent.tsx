@@ -152,7 +152,7 @@ const MessageComponent = ({ item, updateMessage, switchBranch, peers}:
             <View 
             style={
                 tw`${item.role === 'user' ? 'self-end' : 'self-start'} 
-                rounded-lg m-2 max-w-4/5`
+                rounded-lg m-2 max-w-4/5 px-2`
             }> 
                 {/* Show reasoning if role is 'assistant' */}
                 {item.role === 'assistant' && item.reasoning && (

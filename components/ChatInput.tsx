@@ -54,7 +54,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
         {loading && <ActivityIndicator />}
       </View>
-      <View style={tw`${!isFocused && Platform.OS === 'ios' ? 'mb-12' : '-mb-4'} 
+      <View style={tw`${!isFocused && Platform.OS === 'ios' ? 'mb-12' : ''} 
         h-10 flex flex-row items-center px-3 pb-2 justify-between  bg-[${colors.background}]`}
         testID="button-container"
       >

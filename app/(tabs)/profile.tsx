@@ -1,4 +1,5 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useCallback} from "react";
+import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { Text, View, Keyboard, Linking } from 'react-native';
 import TableElem from '@/components/TableElem';
@@ -46,7 +47,7 @@ export default function Profile() {
         const api_key = await AsyncStorage.getItem('API_KEY');
         if (api_key) {
             console.log("Get API_KEY success!");
-            setApiKey(apiKey);
+            setApiKey(api_key);
             return api_key;
         }
         console.log("Get API_KEY FAIL!!");
@@ -54,6 +55,7 @@ export default function Profile() {
     }
 
     const saveApiKey = async () => {
+        if (!apiKey) return;
         try {
             await AsyncStorage.setItem('API_KEY', apiKey);
             console.log("API_KEY Saved");
@@ -69,11 +71,17 @@ export default function Profile() {
         setApiKey(text);
     };
 
+    useFocusEffect(
+        useCallback(() => {
+            getApiKey();
+        }, [])
+    );
+
     useEffect(() => {
         getApiKey();
-        saveApiKey();
         getCredit();
         getHistory();
+        saveApiKey();
       }, [apiKey]);
 
     return (
@@ -90,7 +98,9 @@ export default function Profile() {
                             <TableElem name="Chat History" value={chatHistory}/>
                         </View>
                         <View style={tw`flex flex-col pt-12`}>
-                            <Text style={tw`text-[${colors.text}]`}>Input your OpenRouter API Key: </Text>
+                            <Text style={tw`text-[${colors.text}]`}>
+                                {'Input your OpenRouter API Key:'} 
+                            </Text>
                             <TextInput
                                 style={tw`text-[${colors.text}] border border-gray-700 mt-2 h-10 rounded-md `}
                                 placeholder="Input API Key here..."

@@ -335,11 +335,11 @@ export default function ChatRoom() {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 p-4`}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={tw`flex-1 flex-row`}>
+    <SafeAreaView style={tw`flex-1`}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={tw`flex-1 flex-row pt-4`}>
         {/* Left Sidebar */}
         <Sidebar sidebarExpanded={sidebarExpanded} closeSidebar={() => setSidebarExpanded(false)}>
-          <SafeAreaView style={tw`absolute w-full h-full p-3 z-10`}>
+          <SafeAreaView style={tw`absolute w-full h-full p-3 pt-6 z-10`}>
             <View style={tw`flex flex-row justify-between py-1 px-1.5 bg-black`}>
               <TouchableOpacity 
                 onPress={() => {

@@ -56,7 +56,9 @@ export function getAllRelatedMessages(id: string, messages: Message[]): Message[
   result.sort((a, b) => getDepth(a) - getDepth(b));
 
   console.log('Related Messages:\n' + result.map(
-    m => JSON.stringify({ ...m, content: m.content.slice(0, 10) })).join('\n\n'));
+    m => JSON.stringify({ 
+      ...m, content: m.content.slice(0, 10), reasoning: m.reasoning?.slice(0, 10)
+    })).join('\n\n'));
 
   return result;
 }
