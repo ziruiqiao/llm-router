@@ -1,9 +1,6 @@
 import React, {useState, useEffect} from "react";
 import * as Clipboard from 'expo-clipboard';
-import * as AuthSession from 'expo-auth-session';
-import * as Crypto from 'expo-crypto';
-import * as SecureStore from 'expo-secure-store';
-import { Text, View, Keyboard, Button, Linking } from 'react-native';
+import { Text, View, Keyboard, Linking } from 'react-native';
 import TableElem from '@/components/TableElem';
 import tw from 'twrnc';
 import { TextInput, TouchableWithoutFeedback, TouchableOpacity } from "react-native-gesture-handler";
@@ -120,7 +117,7 @@ export default function Profile() {
                             }}
                         >
                             <Text style={tw`text-blue-500 underline text-base mt-4 text-center`}>
-                            Get Openrouter API Key
+                                {"Get Openrouter API Key"}
                             </Text>
                         </TouchableOpacity>
                     </View>

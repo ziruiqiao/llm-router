@@ -37,6 +37,7 @@ export default function ChatRoom() {
 
   const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelLookup>({});
+  const streamingMessageRef = useRef<Message | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [inputText, setInputText] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
@@ -49,6 +50,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     console.log('currentChatId changed:', currentChatId);
+    console.log('apiKey:', apiKey);
   }, [currentChatId]);
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function ChatRoom() {
   }, [selectedBranch]);
 
   useEffect(() => {
-    console.log('currentMessages changed:', JSON.stringify(currentMessages)); 
+    // console.log('currentMessages changed:', JSON.stringify(currentMessages[currentMessages.length - 1])); 
   }, [currentMessages]);
 
   useEffect(() => {
@@ -64,20 +66,8 @@ export default function ChatRoom() {
   }, []);
 
   useEffect(() => {
-    const currentRoom = chatRooms.find(room => room.id === currentChatId);
-    const currentRoomMsgs = currentRoom?.messages || [];
-    const relatedMessages = getAllRelatedMessages(selectedBranch, currentRoomMsgs)
-    console.log('roomMessages:\n' + chatRooms.find(room => room.id === currentChatId)?.messages
-    .map(m => JSON.stringify({ ...m, content: m.content.slice(0, 10) }))
-    .join('\n\n'));
-    if (relatedMessages.length > 0 || currentRoomMsgs.length === 0)
-      setCurrentMessages(relatedMessages);
-    if (currentRoomMsgs.length > 0) {
-      setSelectedBranch(getLastChildMessage(selectedBranch, relatedMessages)?.id || selectedBranch);
-    } else {
-      setSelectedBranch(currentRoom?.id || "");
-    }
-  }, [selectedBranch, currentChatId]);
+    updateBranchMessages();
+  }, [currentChatId]);
 
   useEffect(() => {
     if (hasRunRef.current) return;
@@ -91,6 +81,23 @@ export default function ChatRoom() {
       hasRunRef.current = true;
     }
   }, [currentMessages]);
+
+  const updateBranchMessages = async (newBranchId?: string) => {
+    if (!newBranchId) newBranchId = selectedBranch;
+    const currentRoom = chatRooms.find(room => room.id === currentChatId);
+    const currentRoomMsgs = currentRoom?.messages || [];
+    const relatedMessages = getAllRelatedMessages(newBranchId, currentRoomMsgs)
+    console.log('roomMessages:\n' + chatRooms.find(room => room.id === currentChatId)?.messages
+    .map(m => JSON.stringify({ ...m, content: m.content.slice(0, 10) }))
+    .join('\n\n'));
+    if (relatedMessages.length > 0 || currentRoomMsgs.length === 0)
+      setCurrentMessages(relatedMessages);
+    if (currentRoomMsgs.length > 0) {
+      setSelectedBranch(getLastChildMessage(newBranchId, relatedMessages)?.id || newBranchId);
+    } else {
+      setSelectedBranch(currentRoom?.id || "");
+    }
+  };
 
   const loadInitialData = async () => {
     const key = await AsyncStorage.getItem("API_KEY");
@@ -180,14 +187,32 @@ export default function ChatRoom() {
         currentRoom.modelId,
         messagesToSend,
         (content, reason) => {
-          // console.log("Streaming content:", content.slice(0, 50));
+          if (!streamingMessageRef.current) {
+            streamingMessageRef.current = {
+              ...botMessage,
+              content,
+              reasoning: reason,
+            };
+          } else {
+            streamingMessageRef.current.content = content;
+            streamingMessageRef.current.reasoning = reason;
+          }
+
+          // console.log('🌀 Stream update:', {
+          //   content: streamingMessageRef.current.content.slice(-50),
+          //   reasoning: streamingMessageRef.current.reasoning?.slice(-50),
+          // });
+        
           setCurrentMessages(prev => {
-            const updated = prev.map(m => m.id === botId ? { ...m, content, reasoning: reason } : m);
-            return [...updated];
+            const updated = prev.map(m => m.id === botId
+              ? { ...m, content, reasoning: reason }
+              : m
+            );
+            return [...updated]; // ensure a new array reference
           });
         }
       );
-      console.log('Received complete bot response:', botMessage);
+      // console.log('Received complete bot response:', botMessage);
 
       const finalBotMessage: Message = {
         ...botMessage,
@@ -384,7 +409,10 @@ export default function ChatRoom() {
                     const msg = { ...item, id: Date.now().toString(), content: text, branchNum };
                     changeHistoryMessage(msg);
                   }}
-                  switchBranch={setSelectedBranch}
+                  switchBranch={(newBranchId) => {
+                    setSelectedBranch(newBranchId);
+                    updateBranchMessages(newBranchId);
+                  }}
                   peers={peers}
                 />
               );

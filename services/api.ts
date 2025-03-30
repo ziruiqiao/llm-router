@@ -91,21 +91,29 @@ export async function sendMessage(
   const response = await fetch(API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      Accept: "text/event-stream",
+      // Accept: "text/event-stream",
     },
     body: JSON.stringify({
       model: modelId,
       messages,
-      stream: true,
+      stream: true
     }),
   });
+
+  console.log('response:', JSON.stringify(response, null, 2));
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Response body is not readable');
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch response: ${response.status} ${response.statusText}`);
   }
-
+  
+  console.log('response has body:', response.body);
   if (!response.body) {
     const fullText = await response.text();
     const lines = fullText.split("\n").filter((line) => line.startsWith("data: "));

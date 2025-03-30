@@ -100,8 +100,8 @@ export default function ModelSelectionModal({
           </View>
         ) : (
           // Model List with Info Icon
-          <>
-            <View style={tw`flex flex-row justify-start pt-10 pb-1 px-1.5`}>
+          <View style={tw`flex-1 py-4`}>
+            <View style={tw`flex px-4 mb-2`}>
               <TouchableOpacity onPress={onClose} testID="back-button">
                 <Feather name="arrow-left" size={28} color={colors.icon} />
               </TouchableOpacity>
@@ -153,7 +153,7 @@ export default function ModelSelectionModal({
               }}
               extraData={availableModels}
             />
-          </>
+          </View>
         )}
       </View>
     </Sidebar>
