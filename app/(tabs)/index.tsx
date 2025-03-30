@@ -47,6 +47,8 @@ export default function ChatRoom() {
   const [refreshing, setRefreshing] = useState(false);
   const { colors } = useThemeColors();
   const hasRunRef = useRef(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     console.log('currentChatId changed:', currentChatId);
@@ -58,7 +60,16 @@ export default function ChatRoom() {
   }, [selectedBranch]);
 
   useEffect(() => {
+    if (autoScrollEnabled && flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, [autoScrollEnabled]);
+
+  useEffect(() => {
     // console.log('currentMessages changed:', JSON.stringify(currentMessages[currentMessages.length - 1])); 
+    if (autoScrollEnabled && flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
   }, [currentMessages]);
 
   useEffect(() => {
@@ -394,8 +405,10 @@ export default function ChatRoom() {
 
           {/* Messages */}
           <FlatList
+            ref={flatListRef}
             data={currentMessages}
             keyExtractor={(item) => item.id}
+            onScrollBeginDrag={() => setAutoScrollEnabled(false)}
             extraData={currentMessages}
             showsVerticalScrollIndicator={false}
             testID="messages-flatlist"
@@ -441,6 +454,16 @@ export default function ChatRoom() {
         availableModels={availableModels}
         onSelectModel={handleSelectModel}
       />
+      <TouchableOpacity
+        onPress={() => setAutoScrollEnabled(prev => !prev)}
+        style={tw`absolute bottom-32 right-6 border border-gray-500 rounded-full p-2 opacity-30`}
+      >
+        <Feather
+          name={autoScrollEnabled ? "arrow-down" : "arrow-down-left"}
+          size={18}
+          color="white"
+        />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

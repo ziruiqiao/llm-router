@@ -37,10 +37,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   setIsFocused,
   testID,
 }) => {
-
+  const { colors } = useThemeColors();
   return (
     <>
-      <View style={tw`flex-row items-center p-2 bg-white max-h-1/2 rounded-t-3xl`}>
+      <View style={tw`flex-row items-center p-2 max-h-1/2 rounded-t-3xl bg-[${colors.background}]`}>
         <TextInput
           style={tw`p-3 flex-1 mr-2`}
           value={inputText}
@@ -54,8 +54,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
         {loading && <ActivityIndicator />}
       </View>
-      <View style={tw`${!isFocused && Platform.OS === 'ios' ? 'mb-12' : ''} 
-        h-10 bg-white flex flex-row items-center px-3 pb-2 justify-between`}
+      <View style={tw`${!isFocused && Platform.OS === 'ios' ? 'mb-12' : '-mb-4'} 
+        h-10 flex flex-row items-center px-3 pb-2 justify-between  bg-[${colors.background}]`}
         testID="button-container"
       >
         {/* Left Side Icons */}
