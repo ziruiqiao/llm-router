@@ -221,8 +221,9 @@ export default function ChatRoom() {
         reasoning,
       };
       // botMessage.branchNum = newMessage.branchNum;
-
-      console.log('Adding bot message to room:', finalBotMessage);
+      console.log('Adding bot message to room:', 
+        { ...finalBotMessage, content: finalBotMessage.content.slice(0, 10) }
+      );
       currentRoom.messages.push(finalBotMessage);
       setCurrentMessages(
         getAllRelatedMessages(botId, currentRoom.messages)

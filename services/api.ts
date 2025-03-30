@@ -1,4 +1,5 @@
 import { Message, SendMessage, LLMModel, ModelLookup } from '@/types/chat';
+import { fetch } from 'expo/fetch';
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const SUMMARY_URL = "https://openrouter.ai/api/v1/completions";
@@ -93,7 +94,7 @@ export async function sendMessage(
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      // Accept: "text/event-stream",
+      Accept: "text/event-stream",
     },
     body: JSON.stringify({
       model: modelId,
@@ -102,19 +103,15 @@ export async function sendMessage(
     }),
   });
 
-  console.log('response:', JSON.stringify(response, null, 2));
-
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error('Response body is not readable');
-  }
+  // console.log('response:', JSON.stringify(response, null, 2));
 
   if (!response.ok) {
     throw new Error(`Failed to fetch response: ${response.status} ${response.statusText}`);
   }
   
-  console.log('response has body:', response.body);
+  // console.log('response has body:', response.body);
   if (!response.body) {
+    console.log('response has no body');
     const fullText = await response.text();
     const lines = fullText.split("\n").filter((line) => line.startsWith("data: "));
     let content = "";
@@ -139,6 +136,7 @@ export async function sendMessage(
     }
     return { content, reasoning: reason };
   } else {
+    console.log('response has body');
     const reader = response.body.getReader();
     return await processStreamedResponse(reader, onStreamUpdate);
   }
@@ -159,15 +157,21 @@ async function processStreamedResponse(
   let done = false;
   let content = "";
   let reason = "";
+  let buffer = "";
 
   while (!done) {
     try {
       const { value, done: streamDone } = await reader.read();
       done = streamDone;
+
       if (value) {
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n").filter((line) => line.startsWith("data: "));
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        
         for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+
           const dataStr = line.replace(/^data:\s*/, "");
           if (dataStr === "[DONE]") {
             done = true;
@@ -179,11 +183,12 @@ async function processStreamedResponse(
             const delta = data?.choices?.[0]?.delta;
             if (delta) {
               content += delta.content || "";
-              reason += delta.reasoning || "";
+              reason += delta.reasoning ?? "";
               onStreamUpdate(content, reason);
             }
           } catch (e) {
             console.error("Failed to parse stream data chunk:", e);
+            console.error("Raw dataStr:", dataStr);
           }
         }
       }
