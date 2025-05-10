@@ -1,17 +1,26 @@
 import React, {useState, useEffect} from "react";
+import * as Clipboard from 'expo-clipboard';
+import * as AuthSession from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
 import { Text, View, Keyboard, Button } from 'react-native';
 import TableElem from '@/components/TableElem';
 import tw from 'twrnc';
-import { TextInput, TouchableWithoutFeedback } from "react-native-gesture-handler";
+import { TextInput, TouchableWithoutFeedback, TouchableOpacity } from "react-native-gesture-handler";
 import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { lightTheme, darkTheme } from '@/constants/theme';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 export default function Profile() {
     const [usedCredit, setUsedCredit] = useState(0.0);
     const [totalCredit, setTotalCredit] = useState(0.0);
     const [chatHistory, setChatHistory] = useState(0);
     const [apiKey, setApiKey] = useState("");
-
+    const colorScheme = useColorScheme();
+    const [dark, setDark] = useState(colorScheme === 'dark');
     
     const getCredit = async () => {
         try {
@@ -21,7 +30,7 @@ export default function Profile() {
             });
     
             if (!response.ok) {
-                console.error("Failed to fetch credits:", response.statusText);
+                console.info("Failed to fetch credits:", response.statusText);
                 return;
             }
 
@@ -60,6 +69,11 @@ export default function Profile() {
         } 
     }
 
+    const pasteFromClipboard = async () => {
+        const text = await Clipboard.getStringAsync();
+        setApiKey(text);
+    };
+
     useEffect(() => {
         getApiKey();
         saveApiKey();
@@ -68,11 +82,11 @@ export default function Profile() {
       }, [apiKey]);
 
     return (
-        <SafeAreaProvider style={tw`bg-white`}>
+        <SafeAreaProvider>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
                 <SafeAreaView>
                     <View style={tw`flex flex-col p-10`}>
-                        <Text style={tw`text-3xl pt-10 pb-5 font-medium`}>
+                        <Text style={tw`text-3xl pt-10 pb-5 font-medium text-[${dark?darkTheme.text : lightTheme.text}] `}>
                             User Profile
                         </Text>
                         <View style={tw`flex flex-row justify-between`}>
@@ -81,9 +95,9 @@ export default function Profile() {
                             <TableElem name="Chat History" value={chatHistory}/>
                         </View>
                         <View style={tw`flex flex-col pt-12`}>
-                            <Text>Input your OpenRouter API Key: </Text>
+                            <Text style={tw`text-[${dark?darkTheme.text : lightTheme.text}]`}>Input your OpenRouter API Key: </Text>
                             <TextInput
-                                style={tw`border mt-2 h-7 rounded-md`}
+                                style={tw`text-[${dark ? darkTheme.text : lightTheme.text}] border border-gray-700 mt-2 h-10 rounded-md `}
                                 placeholder="Input API Key here..."
                                 onChangeText={setApiKey}
                                 value={apiKey}
@@ -94,8 +108,16 @@ export default function Profile() {
                                 numberOfLines={1}
                             />
                         </View>
+                        <View style={tw`flex flex-row mt-4 pt-4 justify-between`}>
+                            <TouchableOpacity onPress={() => setApiKey('')}>
+                                <MaterialIcons name="clear" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => pasteFromClipboard()}>
+                                <FontAwesome6 name="paste" size={24} color={dark?darkTheme.icon : lightTheme.icon} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    <Button title="Refresh Credit" onPress={getCredit}/>
+                    
                 </SafeAreaView>
             </TouchableWithoutFeedback>
         </SafeAreaProvider>
